@@ -29,6 +29,7 @@ OVERRIDES = {
     "ABC.National.Feed.us2": "united-states/abc-white-us.png",
     "MS.NOW.HD.us2": "united-states/ms-now-us.png",
     "CNBC.HD.us2": "united-states/cnbc-us.png",
+    "CNBC.Canadian.Feed.ca2": "united-states/cnbc-us.png",
     "CTV.News.Channel.ca2": "canada/ctv-news-ca.png",
     "CTV.News.Channel.HD.ca2": "canada/ctv-news-ca.png",
     "ABC.News.Live.us2": "united-states/abc-news-live-light-hz-us.png",
@@ -103,6 +104,7 @@ PLAYLIST_IDS = {
     "ABC.News.Live.us2": "ABC News24 HD",
     "Comedy.Central.HD.us2": "Comedy Central US",
     "CNBC.HD.us2": "CNBC US",
+    "TNT.HD.us2": "Turner Network TV HD",
 }
 
 
