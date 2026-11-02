@@ -127,8 +127,15 @@ def main():
     with gzip.open(os.path.join("site", "epg.xml.gz"), "wt", encoding="utf-8") as out:
         out.write(head)
         out.write(local_channels)
-        for part in inner:
-            out.write(part)
+        # XMLTV readers expect all channel definitions before the first programme.
+        sections = [part.partition("<programme ") for part in inner]
+        for channels, marker, _ in sections:
+            if not marker:
+                raise ValueError("Guide has no programmes")
+            out.write(channels)
+        for _, marker, programmes in sections:
+            out.write(marker)
+            out.write(programmes)
         out.write(local_programmes)
         out.write("</tv>\n")
     print("wrote site/epg.xml.gz", os.path.getsize(os.path.join("site", "epg.xml.gz")), "bytes")
