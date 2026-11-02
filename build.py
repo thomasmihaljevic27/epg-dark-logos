@@ -15,6 +15,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
 
 SOURCE = "https://epgshare01.online/epgshare01/epg_ripper_{}.xml.gz"
 UA = {"User-Agent": "epg-dark-logos (github.com/thomasmihaljevic27/epg-dark-logos)"}
@@ -28,6 +29,13 @@ OVERRIDES = {
     "ABC.National.Feed.us2": "united-states/abc-white-us.png",
     "MS.NOW.HD.us2": "united-states/ms-now-us.png",
     "CNBC.HD.us2": "united-states/cnbc-us.png",
+    "CTV.News.Channel.ca2": "canada/ctv-news-ca.png",
+    "CTV.News.Channel.HD.ca2": "canada/ctv-news-ca.png",
+    "ABC.News.Live.us2": "united-states/abc-news-live-light-hz-us.png",
+    "Comedy.Central.HD.us2": "united-states/comedy-central-us.png",
+    "Comedy.Central.HD.(Pacific).us2": "united-states/comedy-central-us.png",
+    "TSN.2.ca2": "https://dtil.tmsimg.com/assets/s61474_ll_h15_aa.png",
+    "TSN.2.HD.ca2": "https://dtil.tmsimg.com/assets/s61474_ll_h15_aa.png",
     "TNT.HD.us2": "united-states/tnt-us.png",
 }
 
@@ -56,6 +64,39 @@ def dark_version(match):
     return None
 
 
+# The playlist carries these local affiliates, including their local newscasts.
+AFFILIATES = {
+    "WABC-DT.us_locals1": ("ABC New York NY WABC", "WABC New York (ABC)", "abc-white-us"),
+    "WXIA-DT.us_locals1": ("NBC Atlanta GA WXIA", "WXIA Atlanta (NBC)", "nbc-us"),
+}
+
+
+def affiliates(stream):
+    """Read only the two requested stations from the much larger locals guide."""
+    events = ET.iterparse(stream, events=("start", "end"))
+    _, root = next(events)
+    channels, programmes = [], []
+    for event, node in events:
+        if event != "end" or node.tag not in ("channel", "programme"):
+            continue
+        is_channel = node.tag == "channel"
+        attr = "id" if is_channel else "channel"
+        station = AFFILIATES.get(node.get(attr))
+        if station:
+            channel_id, name, logo = station
+            node.set(attr, channel_id)
+            if is_channel:
+                for old in node.findall("icon"):
+                    node.remove(old)
+                node.find("display-name").text = name
+                ET.SubElement(node, "icon", src=TV_LOGOS + "united-states/" + logo + ".png")
+            (channels if is_channel else programmes).append(ET.tostring(node, encoding="unicode"))
+        root.remove(node)
+    if len(channels) != len(AFFILIATES) or not programmes:
+        raise ValueError("Local affiliate listings missing")
+    return "".join(channels), "".join(programmes)
+
+
 def main():
     names = sys.argv[1:] or ["CA2", "US2"]
     guides = [fetch(n) for n in names]
@@ -71,18 +112,24 @@ def main():
     def override(g):
         for cid, path in OVERRIDES.items():
             block = re.compile(r'(<channel id="%s">)(.*?)(</channel>)' % re.escape(cid), re.S)
-            icon = f'<icon src="{TV_LOGOS}{path}" />'
+            url = path if path.startswith("https://") else TV_LOGOS + path
+            icon = f'<icon src="{url}" />'
             g = block.sub(lambda m: m.group(1) + re.sub(r"<icon [^>]*/>", "", m.group(2)) + icon + m.group(3), g)
         return g
 
     # One <tv> holding every guide's channels and programmes; the channel ids (…ca2, …us2) don't overlap.
     inner = [re.search(r"<tv[^>]*>(.*)</tv>", override(LIGHT.sub(replace, g)), re.S).group(1) for g in guides]
+    req = urllib.request.Request(SOURCE.format("US_LOCALS1"), headers=UA)
+    with urllib.request.urlopen(req, timeout=300) as response, gzip.GzipFile(fileobj=response) as stream:
+        local_channels, local_programmes = affiliates(stream)
     head = re.search(r"^.*?<tv[^>]*>", guides[0], re.S).group(0)
     os.makedirs("site", exist_ok=True)
     with gzip.open(os.path.join("site", "epg.xml.gz"), "wt", encoding="utf-8") as out:
         out.write(head)
+        out.write(local_channels)
         for part in inner:
             out.write(part)
+        out.write(local_programmes)
         out.write("</tv>\n")
     print("wrote site/epg.xml.gz", os.path.getsize(os.path.join("site", "epg.xml.gz")), "bytes")
 
