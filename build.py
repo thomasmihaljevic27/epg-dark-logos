@@ -25,6 +25,8 @@ LIGHT = re.compile(r"(https?://dtil\.tmsimg\.com/assets/)(s\d+)_ll_(h\d+)_([a-z]
 # a dark-background logo from github.com/tv-logo/tv-logos instead.
 TV_LOGOS = "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/"
 OVERRIDES = {
+    "TVO.ca2": "canada/tvo-ca.png",
+    "AdultSwim.com.Cartoon.Network.us2": "united-states/adult-swim-us.png",
     "The.Weather.Network.Canada.HD.ca2": "canada/the-weather-network-ca.png",
     "ABC.National.Feed.us2": "united-states/abc-white-us.png",
     "MS.NOW.HD.us2": "united-states/ms-now-us.png",
@@ -103,6 +105,7 @@ def affiliates(stream):
 # Exact playlist IDs let TiviMate use the matching artwork automatically.
 # Keep the original IDs for viewers who already assigned them manually.
 PLAYLIST_IDS = {
+    "TVO.ca2": "TVO Kids",
     "ABC.News.Live.us2": "ABC News24 HD",
     "Comedy.Central.HD.us2": "Comedy Central US",
     "CNBC.HD.us2": "CNBC US",
