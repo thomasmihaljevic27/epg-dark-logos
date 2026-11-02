@@ -67,13 +67,15 @@ def dark_version(match):
 
 # The playlist carries these local affiliates, including their local newscasts.
 AFFILIATES = {
+    "WBNS-DT.us_locals1": ("CBS Columbus OH WBNS", "WBNS Columbus (CBS)", "cbs-logo-white-us"),
+    "WPMT-DT.us_locals1": ("Fox 43", "WPMT Harrisburg (Fox)", "fox-us"),
     "WABC-DT.us_locals1": ("ABC New York NY WABC", "WABC New York (ABC)", "abc-white-us"),
     "WXIA-DT.us_locals1": ("NBC Atlanta GA WXIA", "WXIA Atlanta (NBC)", "nbc-us"),
 }
 
 
 def affiliates(stream):
-    """Read only the two requested stations from the much larger locals guide."""
+    """Read only the requested stations from the much larger locals guide."""
     events = ET.iterparse(stream, events=("start", "end"))
     _, root = next(events)
     channels, programmes = [], []
