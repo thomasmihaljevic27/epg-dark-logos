@@ -97,6 +97,26 @@ def affiliates(stream):
     return "".join(channels), "".join(programmes)
 
 
+# Exact playlist IDs let TiviMate use the matching artwork automatically.
+# Keep the original IDs for viewers who already assigned them manually.
+PLAYLIST_IDS = {
+    "ABC.News.Live.us2": "ABC News24 HD",
+    "Comedy.Central.HD.us2": "Comedy Central US",
+    "CNBC.HD.us2": "CNBC US",
+}
+
+
+def add_playlist_ids(guide):
+    ids = "|".join(map(re.escape, PLAYLIST_IDS))
+    for tag, attribute in (("channel", "id"), ("programme", "channel")):
+        pattern = rf'(<{tag}\b[^>]*? {attribute}=")({ids})(".*?</{tag}>)'
+        def duplicate(match):
+            before, source, after = match.groups()
+            return match[0] + "\n" + before + PLAYLIST_IDS[source] + after
+        guide = re.sub(pattern, duplicate, guide, flags=re.S)
+    return guide
+
+
 def main():
     names = sys.argv[1:] or ["CA2", "US2"]
     guides = [fetch(n) for n in names]
@@ -118,7 +138,7 @@ def main():
         return g
 
     # One <tv> holding every guide's channels and programmes; the channel ids (…ca2, …us2) don't overlap.
-    inner = [re.search(r"<tv[^>]*>(.*)</tv>", override(LIGHT.sub(replace, g)), re.S).group(1) for g in guides]
+    inner = [re.search(r"<tv[^>]*>(.*)</tv>", add_playlist_ids(override(LIGHT.sub(replace, g))), re.S).group(1) for g in guides]
     req = urllib.request.Request(SOURCE.format("US_LOCALS1"), headers=UA)
     with urllib.request.urlopen(req, timeout=300) as response, gzip.GzipFile(fileobj=response) as stream:
         local_channels, local_programmes = affiliates(stream)
