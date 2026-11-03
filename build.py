@@ -76,8 +76,11 @@ AFFILIATES = {
 }
 
 
-def affiliates(stream):
-    """Read only the requested stations from the much larger locals guide."""
+NEWS_NOW = {"[NBCNN].NBC.News.NOW.PEACOCK": ("5df97894467dfa00091c873c", "NBC News NOW", "nbc-news-now-hz-us")}
+
+
+def selected_stations(stream, stations):
+    """Read only the requested stations from an XMLTV guide."""
     events = ET.iterparse(stream, events=("start", "end"))
     _, root = next(events)
     channels, programmes = [], []
@@ -86,7 +89,7 @@ def affiliates(stream):
             continue
         is_channel = node.tag == "channel"
         attr = "id" if is_channel else "channel"
-        station = AFFILIATES.get(node.get(attr))
+        station = stations.get(node.get(attr))
         if station:
             channel_id, name, logo = station
             node.set(attr, channel_id)
@@ -97,8 +100,8 @@ def affiliates(stream):
                 ET.SubElement(node, "icon", src=TV_LOGOS + "united-states/" + logo + ".png")
             (channels if is_channel else programmes).append(ET.tostring(node, encoding="unicode"))
         root.remove(node)
-    if len(channels) != len(AFFILIATES) or not programmes:
-        raise ValueError("Local affiliate listings missing")
+    if len(channels) != len(stations) or not programmes:
+        raise ValueError("Requested station listings missing")
     return "".join(channels), "".join(programmes)
 
 
@@ -148,12 +151,16 @@ def main():
     inner = [re.search(r"<tv[^>]*>(.*)</tv>", add_playlist_ids(override(LIGHT.sub(replace, g))), re.S).group(1) for g in guides]
     req = urllib.request.Request(SOURCE.format("US_LOCALS1"), headers=UA)
     with urllib.request.urlopen(req, timeout=300) as response, gzip.GzipFile(fileobj=response) as stream:
-        local_channels, local_programmes = affiliates(stream)
+        local_channels, local_programmes = selected_stations(stream, AFFILIATES)
+    req = urllib.request.Request(SOURCE.format("PEACOCK1"), headers=UA)
+    with urllib.request.urlopen(req, timeout=300) as response, gzip.GzipFile(fileobj=response) as stream:
+        news_channel, news_programmes = selected_stations(stream, NEWS_NOW)
     head = re.search(r"^.*?<tv[^>]*>", guides[0], re.S).group(0)
     os.makedirs("site", exist_ok=True)
     with gzip.open(os.path.join("site", "epg.xml.gz"), "wt", encoding="utf-8") as out:
         out.write(head)
         out.write(local_channels)
+        out.write(news_channel)
         # XMLTV readers expect all channel definitions before the first programme.
         sections = [part.partition("<programme ") for part in inner]
         for channels, marker, _ in sections:
@@ -164,6 +171,7 @@ def main():
             out.write(marker)
             out.write(programmes)
         out.write(local_programmes)
+        out.write(news_programmes)
         out.write("</tv>\n")
     print("wrote site/epg.xml.gz", os.path.getsize(os.path.join("site", "epg.xml.gz")), "bytes")
 
